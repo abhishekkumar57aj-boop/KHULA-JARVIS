@@ -33,6 +33,9 @@ from core.voice import VOICE_OPTIONS, VoiceSystem, normalize_voice_command
 APP_DIR = Path(__file__).resolve().parent
 ANDROID = platform == "android"
 
+# YAHAN APNI GEMINI API KEY ENTER KAREIN
+DEFAULT_API_KEY = "YOUR_GEMINI_API_KEY_HERE"
+
 
 class KhulaApp(MDApp):
     def __init__(self, **kwargs) -> None:
@@ -66,6 +69,11 @@ class KhulaApp(MDApp):
         self.brain = GeminiBrain()
         self.brain.env_path = data_dir / ".env"
         load_dotenv(self.brain.env_path, override=True)
+
+        # Default API Key set karna agar pehle se .env me na ho
+        if not os.getenv("GEMINI_API_KEY"):
+            os.environ["GEMINI_API_KEY"] = DEFAULT_API_KEY
+
         self.brain.reload_credentials()
         self.coder = AutonomousCoder(self.brain)
         self.automation = DesktopAutomation(data_dir)
@@ -81,7 +89,7 @@ class KhulaApp(MDApp):
         root.add_widget(header)
 
         self.status = MDLabel(
-            text="Ready. Add your Gemini API key to start.",
+            text="Ready. Ask KHULA anything!",
             size_hint_y=None, height=dp(30), theme_text_color="Secondary",
             halign="left", valign="middle",
         )
