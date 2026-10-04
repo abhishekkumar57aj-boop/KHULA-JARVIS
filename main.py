@@ -2,8 +2,15 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import threading
 from pathlib import Path
+
+# Android SSL Certificate Error Fix
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except Exception:
+    pass
 
 from dotenv import load_dotenv
 from kivy.clock import Clock
