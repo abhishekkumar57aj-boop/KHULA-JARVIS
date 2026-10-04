@@ -246,7 +246,14 @@ class KhulaApp(MDApp):
             elif lowered == "/screen":
                 result = "Screen capture is not available in the mobile app."
             else:
-                result = self.brain.ask(prompt)
+                # System Prompt: Strictly Hindi (Devnagri Script) Mode
+                hindi_instruction = (
+                    "System Instruction: You are KHULA JARVIS. Always respond in proper Devnagri Hindi script (देवनागरी हिंदी) "
+                    "whenever the user asks questions or requests responses in Hindi. Do not write Hindi using English/Latin alphabet. "
+                    "Use pure Devnagri script (जैसे: नमस्ते, मैं आपकी क्या सहायता कर सकता हूँ?).\n\n"
+                    f"User Message: {prompt}"
+                )
+                result = self.brain.ask(hindi_instruction)
         except Exception as exc:
             result = f"Error: {exc}"
         Clock.schedule_once(lambda _dt: self._finish_response(result, voice_origin), 0)
