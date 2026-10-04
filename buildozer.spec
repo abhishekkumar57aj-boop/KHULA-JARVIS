@@ -7,7 +7,7 @@ source.dir = .
 source.include_exts = py,png,jpg,jpeg,kv,atlas,json,txt
 source.exclude_dirs = .git,.venv,venv,__pycache__,history,tests,agent_workspace,.khula_backups
 version = 1.0.0
-requirements = python3,kivy==2.3.1,kivymd==1.2.0,python-dotenv,plyer,pillow
+requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.1,kivymd==1.2.0,python-dotenv,plyer,pillow
 orientation = portrait
 fullscreen = 0
 
