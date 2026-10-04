@@ -14,6 +14,7 @@ except Exception:
 
 from dotenv import load_dotenv
 from kivy.clock import Clock
+from kivy.core.window import Window
 from kivy.metrics import dp
 from kivy.utils import platform
 from kivymd.app import MDApp
@@ -29,6 +30,8 @@ from core.coder import AutonomousCoder
 from core.history import ChatHistory
 from core.voice import VOICE_OPTIONS, VoiceSystem, normalize_voice_command
 
+# Keyboard opening and soft input adjustment fix
+Window.softinput_mode = "below_target"
 
 APP_DIR = Path(__file__).resolve().parent
 ANDROID = platform == "android"
@@ -104,13 +107,14 @@ class KhulaApp(MDApp):
         root.add_widget(scroll)
         self.scroll = scroll
 
-        # Layout fix: Proper proportions for TextField and Buttons
+        # Layout & Keyboard Voice Input (Gboard) Fix
         composer = MDBoxLayout(
             orientation="horizontal", size_hint_y=None, height=dp(60), spacing=dp(4), padding=[dp(2), dp(2), dp(2), dp(2)]
         )
         self.prompt_field = MDTextField(
             hint_text="Message KHULA...",
             mode="rectangle", multiline=False,
+            keyboard_suggestions=True,  # Gboard Voice Input Enable Fix
             size_hint_x=0.52,
         )
         self.prompt_field.bind(on_text_validate=self.submit)
@@ -252,7 +256,7 @@ class KhulaApp(MDApp):
         self._append_message("KHULA", response)
         self.history.add_message("assistant", response)
         self._set_status("Ready")
-        # Har jawaab bol kar batane ke liye
+        # Har jawaab bol kar sunane ke liye
         if speak or self._voice_enabled:
             self._speak_response(response)
 
