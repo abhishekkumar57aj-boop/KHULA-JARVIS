@@ -78,7 +78,7 @@ class KhulaApp(MDApp):
         self.coder = AutonomousCoder(self.brain)
         self.automation = DesktopAutomation(data_dir)
 
-        root = MDBoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
+        root = MDBoxLayout(orientation="vertical", padding=dp(8), spacing=dp(6))
         header = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48), spacing=dp(6))
         header.add_widget(MDLabel(
             text="KHULA JARVIS", font_style="H6", bold=True,
@@ -90,7 +90,7 @@ class KhulaApp(MDApp):
 
         self.status = MDLabel(
             text="Ready. Ask KHULA anything!",
-            size_hint_y=None, height=dp(30), theme_text_color="Secondary",
+            size_hint_y=None, height=dp(28), theme_text_color="Secondary",
             halign="left", valign="middle",
         )
         root.add_widget(self.status)
@@ -104,18 +104,27 @@ class KhulaApp(MDApp):
         root.add_widget(scroll)
         self.scroll = scroll
 
+        # Layout fix: Proper proportions for TextField and Buttons
         composer = MDBoxLayout(
-            orientation="horizontal", size_hint_y=None, height=dp(58), spacing=dp(5),
+            orientation="horizontal", size_hint_y=None, height=dp(60), spacing=dp(4), padding=[dp(2), dp(2), dp(2), dp(2)]
         )
         self.prompt_field = MDTextField(
-            hint_text="Message KHULA or enter /code <task>",
+            hint_text="Message KHULA...",
             mode="rectangle", multiline=False,
+            size_hint_x=0.52,
         )
         self.prompt_field.bind(on_text_validate=self.submit)
         composer.add_widget(self.prompt_field)
-        self.mic_button = MDFlatButton(text="MIC ON", on_release=self.toggle_voice)
+
+        self.mic_button = MDFlatButton(
+            text="MIC ON", size_hint_x=0.24, on_release=self.toggle_voice
+        )
         composer.add_widget(self.mic_button)
-        composer.add_widget(MDRaisedButton(text="SEND", on_release=self.submit))
+
+        send_button = MDRaisedButton(
+            text="SEND", size_hint_x=0.24, on_release=self.submit
+        )
+        composer.add_widget(send_button)
         root.add_widget(composer)
 
         self._restore_history()
@@ -149,7 +158,9 @@ class KhulaApp(MDApp):
         label.bind(texture_size=lambda widget, size: setattr(widget, "height", size[1] + dp(24)))
         self.messages.add_widget(label)
         self._chat_labels.append(label)
-        Clock.schedule_once(lambda _dt: setattr(self.scroll, "scroll_y", 0), 0.1)
+        
+        # Auto scroll to bottom
+        Clock.schedule_once(lambda _dt: setattr(self.scroll, "scroll_y", 0), 0.15)
 
     def _set_status(self, text: str) -> None:
         self.status.text = text
@@ -241,7 +252,8 @@ class KhulaApp(MDApp):
         self._append_message("KHULA", response)
         self.history.add_message("assistant", response)
         self._set_status("Ready")
-        if speak:
+        # Har jawaab bol kar batane ke liye
+        if speak or self._voice_enabled:
             self._speak_response(response)
 
     def open_api_key(self, *_args) -> None:
@@ -316,28 +328,28 @@ class KhulaApp(MDApp):
 
     def _bind_android_speech(self) -> None:
         try:
-            from android import activity
-
-            activity.bind(on_activity_result=self._on_android_speech_result)
+            from android.activity import bind
+            bind(on_activity_result=self._on_android_speech_result)
             self._native_speech_bound = True
             self._set_status("Tap MIC to speak. Android speech recognition is ready.")
-        except ImportError:
-            self._set_status("Android speech recognition is unavailable in this build.")
+        except Exception:
+            self._set_status("Tap MIC to speak to KHULA.")
 
     def _launch_android_speech(self) -> None:
         if self._request_in_progress:
-            self._set_status("KHULA is working. Please wait for the current task.")
+            self._set_status("KHULA is working. Please wait...")
             return
         try:
-            from android import activity
             from jnius import autoclass
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            current_activity = PythonActivity.mActivity
 
             intent_class = autoclass("android.content.Intent")
             recognizer = autoclass("android.speech.RecognizerIntent")
             intent = intent_class(recognizer.ACTION_RECOGNIZE_SPEECH)
             intent.putExtra(recognizer.EXTRA_LANGUAGE_MODEL, recognizer.LANGUAGE_MODEL_FREE_FORM)
             intent.putExtra(recognizer.EXTRA_PROMPT, "Speak to KHULA JARVIS")
-            activity.startActivityForResult(intent, 6821)
+            current_activity.startActivityForResult(intent, 6821)
             self._set_status("Listening...")
         except Exception as exc:
             self._set_status(f"Could not start speech recognition: {exc}")
@@ -363,9 +375,8 @@ class KhulaApp(MDApp):
     def _unbind_android_speech(self) -> None:
         if self._native_speech_bound:
             try:
-                from android import activity
-
-                activity.unbind(on_activity_result=self._on_android_speech_result)
+                from android.activity import unbind
+                unbind(on_activity_result=self._on_android_speech_result)
             except (ImportError, AttributeError):
                 pass
             self._native_speech_bound = False
@@ -378,9 +389,11 @@ class KhulaApp(MDApp):
         self._voice_active.clear()
         try:
             if ANDROID:
-                from plyer import tts
-
-                tts.speak(text[:3000])
+                try:
+                    from plyer import tts
+                    tts.speak(text[:3000])
+                except Exception:
+                    pass
             else:
                 self._voice.speak(text, self._voice_name)
         except Exception as exc:
