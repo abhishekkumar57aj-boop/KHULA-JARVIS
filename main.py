@@ -46,6 +46,7 @@ class KhulaApp(MDApp):
         self.project_dir = APP_DIR / "agent_workspace"
         self._request_in_progress = False
         self._voice_enabled = True
+        self._tts_enabled = True  # Audio response toggle (Aawaaz me bolna)
         self._voice_stop = threading.Event()
         self._voice_active = threading.Event()
         self._voice_speaking = threading.Event()
@@ -82,12 +83,17 @@ class KhulaApp(MDApp):
         self.automation = DesktopAutomation(data_dir)
 
         root = MDBoxLayout(orientation="vertical", padding=dp(8), spacing=dp(6))
-        header = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48), spacing=dp(6))
+        header = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(48), spacing=dp(4))
         header.add_widget(MDLabel(
             text="KHULA JARVIS", font_style="H6", bold=True,
-            halign="left", valign="middle",
+            halign="left", valign="middle", size_hint_x=0.35,
         ))
         header.add_widget(MDFlatButton(text="API KEY", on_release=self.open_api_key))
+        
+        # Audio / TTS ON-OFF Button
+        self.tts_button = MDFlatButton(text="AUDIO: ON", on_release=self.toggle_tts)
+        header.add_widget(self.tts_button)
+        
         header.add_widget(MDFlatButton(text="NEW", on_release=self.new_chat))
         root.add_widget(header)
 
@@ -142,6 +148,7 @@ class KhulaApp(MDApp):
     def on_stop(self) -> None:
         self._voice_stop.set()
         self._voice_active.clear()
+        self._stop_speaking()
         self._unbind_android_speech()
 
     def _restore_history(self) -> None:
@@ -169,7 +176,34 @@ class KhulaApp(MDApp):
     def _set_status(self, text: str) -> None:
         self.status.text = text
 
+    def toggle_tts(self, *_args) -> None:
+        """Audio Output (TTS) Mute/Unmute & Immediate Speech Stop"""
+        self._tts_enabled = not self._tts_enabled
+        if not self._tts_enabled:
+            self._stop_speaking()
+            self.tts_button.text = "AUDIO: OFF"
+            self._set_status("Voice response MUTED.")
+        else:
+            self.tts_button.text = "AUDIO: ON"
+            self._set_status("Voice response ENABLED.")
+
+    def _stop_speaking(self) -> None:
+        """Turant bolna rokne ke liye function"""
+        try:
+            if ANDROID:
+                try:
+                    from plyer import tts
+                    tts.stop()
+                except Exception:
+                    pass
+            else:
+                if hasattr(self._voice, "stop"):
+                    self._voice.stop()
+        except Exception:
+            pass
+
     def new_chat(self, *_args) -> None:
+        self._stop_speaking()
         self.history.new_chat()
         self.messages.clear_widgets()
         self._chat_labels.clear()
@@ -214,6 +248,7 @@ class KhulaApp(MDApp):
         if self._request_in_progress:
             self._set_status("KHULA is working. Please wait for the current task.")
             return
+        self._stop_speaking()  # Naya prompt bhejne par purani aawaaz rok do
         self._request_in_progress = True
         self._append_message("You", prompt)
         self.history.add_message("user", prompt)
@@ -246,14 +281,15 @@ class KhulaApp(MDApp):
             elif lowered == "/screen":
                 result = "Screen capture is not available in the mobile app."
             else:
-                # System Prompt: Strictly Hindi (Devnagri Script) Mode
-                hindi_instruction = (
-                    "System Instruction: You are KHULA JARVIS. Always respond in proper Devnagri Hindi script (देवनागरी हिंदी) "
-                    "whenever the user asks questions or requests responses in Hindi. Do not write Hindi using English/Latin alphabet. "
-                    "Use pure Devnagri script (जैसे: नमस्ते, मैं आपकी क्या सहायता कर सकता हूँ?).\n\n"
+                # System Prompt: Clean Hinglish (Roman Script Hindi) Mode
+                hinglish_instruction = (
+                    "System Instruction: You are KHULA JARVIS. Always respond in clear, natural Hinglish "
+                    "(Hindi words written in standard English/Latin alphabet). "
+                    "Do NOT use Devanagari Hindi script to prevent missing font box errors on mobile devices. "
+                    "Example response style: 'Namaste! Main aapki kya madad kar sakta hoon?'\n\n"
                     f"User Message: {prompt}"
                 )
-                result = self.brain.ask(hindi_instruction)
+                result = self.brain.ask(hinglish_instruction)
         except Exception as exc:
             result = f"Error: {exc}"
         Clock.schedule_once(lambda _dt: self._finish_response(result, voice_origin), 0)
@@ -263,8 +299,9 @@ class KhulaApp(MDApp):
         self._append_message("KHULA", response)
         self.history.add_message("assistant", response)
         self._set_status("Ready")
-        # Har jawaab bol kar sunane ke liye
-        if speak or self._voice_enabled:
+        
+        # Agar AUDIO: ON hai, toh har naya jawaab direct bol kar sunayega
+        if self._tts_enabled:
             self._speak_response(response)
 
     def open_api_key(self, *_args) -> None:
